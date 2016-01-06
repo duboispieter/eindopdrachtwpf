@@ -15,9 +15,9 @@ namespace Wenskaarten.Model
         public int Tekstgrootte { get; set; }
         public FontFamily Lettertype { get; set; }
         public Boolean ControlsZichtbaar { get; set; }
+        public Boolean MenuEnabled { get; set; }
         public string Status { get; set; }
-        public ObservableCollection<Bal> BallenLijst { get; set; }
-        public ObservableCollection<Kleur> Kleurenlijst { get; set; }
+        public string Wens { get; set; }
         
     }
 }

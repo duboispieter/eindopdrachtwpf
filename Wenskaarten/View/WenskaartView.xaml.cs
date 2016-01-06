@@ -27,11 +27,6 @@ namespace Wenskaarten.View
             
         }
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
-        {
-            cboLettertype.Items.SortDescriptions.Add(new SortDescription("Source", ListSortDirection.Ascending));
-            cboLettertype.SelectedItem = new FontFamily("Arial");
-        }
 
     }
 }

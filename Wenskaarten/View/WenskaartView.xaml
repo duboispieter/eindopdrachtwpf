@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:gala="http://www.galasoft.ch/mvvmlight"
         xmlns:i="clr-namespace:System.Windows.Interactivity;assembly=System.Windows.Interactivity"
-        Title="WenskaartView" Height="550" Width="750" Loaded="Window_Loaded">
+        xmlns:smc="clr-namespace:System.ComponentModel;assembly=WindowsBase"
+        Title="Wenskaarten" Height="550" Width="750">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="LogischNaarVisueel"></BooleanToVisibilityConverter>
     </Window.Resources>
@@ -14,17 +15,14 @@
         <i:EventTrigger EventName="Loaded">
             <gala:EventToCommand Command="{Binding LoadedCommand}"></gala:EventToCommand>
         </i:EventTrigger>
-        <i:EventTrigger EventName="DragEnter">
-            <gala:EventToCommand Command="{Binding DragEnterCommand}"></gala:EventToCommand>
-        </i:EventTrigger>
     </i:Interaction.Triggers>
     <DockPanel LastChildFill="True">
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="Bestand">
                 <MenuItem Header="Nieuw" Command="{Binding NieuwCommand}"></MenuItem>
                 <MenuItem Header="Openen" Command="{Binding OpenenCommand}"></MenuItem>
-                <MenuItem Header="Opslaan" Name="menuOpslaan" Command="{Binding OpslaanCommand}"></MenuItem>
-                <MenuItem Header="Afdrukvoorbeeld" Name="menuAfdrukvoorbeeld"></MenuItem>
+                <MenuItem Header="Opslaan" Name="menuOpslaan" Command="{Binding OpslaanCommand}" IsEnabled="{Binding MenuEnabled}"></MenuItem>
+                <MenuItem Header="Afdrukvoorbeeld" Name="menuAfdrukvoorbeeld" Command ="{Binding AfdrukvoorbeeldCommand}" IsEnabled="{Binding MenuEnabled}"></MenuItem>
                 <Separator></Separator>
                 <MenuItem Header="Afsluiten" Command="{Binding AfsluitenCommand}"></MenuItem>
             </MenuItem>
@@ -33,36 +31,71 @@
                 <MenuItem Header="Geboortekaart" Command="{Binding GeboortekaartCommand}"></MenuItem>
             </MenuItem>
         </Menu>
+        <StatusBar DockPanel.Dock="Bottom" Height="20">
+            <TextBlock Text="{Binding Status}"></TextBlock>
+        </StatusBar>
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Top"  Visibility="{Binding ControlsZichtbaar, Converter={StaticResource LogischNaarVisueel}}">
             <StackPanel Orientation="Vertical">
                 <ItemsControl ItemsSource="{Binding Ballen}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <Canvas Height="400" Width="500" Background="{Binding Achtergrond}" AllowDrop="True"></Canvas>
+                            <Canvas Height="400" Width="500" Background="{Binding Achtergrond}" AllowDrop="True" Name="canvas">
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Drop">
+                                        <gala:EventToCommand Command="{Binding DropCommand}" PassEventArgsToCommand="True"></gala:EventToCommand>
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Canvas>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Ellipse></Ellipse>
+                            <Ellipse Fill="{Binding BalKleur}"></Ellipse>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                     <ItemsControl.ItemContainerStyle>
-                        <Style></Style>
+                        <Style TargetType="ContentPresenter">
+                            <Setter Property="Canvas.Left" Value="{Binding xPos}"></Setter>
+                            <Setter Property="Canvas.Top" Value="{Binding yPos}"></Setter>
+                        </Style>
                     </ItemsControl.ItemContainerStyle>
                 </ItemsControl>
 
-                <TextBox Name="txtWens" TextAlignment="center" Margin="10" Height="50" FontFamily="{Binding Lettertype}" FontSize="{Binding Tekstgrootte}"></TextBox>
+                <TextBox Name="txtWens" TextAlignment="center" Margin="10" Height="50" FontFamily="{Binding Lettertype}" FontSize="{Binding Tekstgrootte}" Text="{Binding Wens, UpdateSourceTrigger=PropertyChanged}"></TextBox>
             </StackPanel>
-            <StackPanel Orientation="Vertical">
+            <StackPanel Orientation="Vertical" Margin="10, 0, 0, 0">
                 <TextBlock Width="200" Height="30" TextAlignment="Center">Kleur van de bal</TextBlock>
-                <ComboBox Name="cboKleuren" ItemsSource="{Binding Kleurenlijst}" DisplayMemberPath="Kleurnaam" SelectedValuePath="Borstel"></ComboBox>
-                <Ellipse Name="elBal" Fill="{Binding ElementName=cboKleuren, Path=SelectedValue}">
-               </Ellipse>
-                <TextBlock Height="30" TextAlignment="Center" Margin="0,200,0,0">Lettertype</TextBlock>
-                <ComboBox Name="cboLettertype" ItemsSource="{Binding Source={x:Static Member=Fonts.SystemFontFamilies}}" SelectedItem="{Binding Lettertype}"></ComboBox>
+                <ComboBox Name="cboKleuren" ItemsSource="{Binding Kleurlijst}" DisplayMemberPath="Kleurnaam" SelectedValuePath="Borstel" SelectedIndex="0"></ComboBox>
+                <Ellipse Name="elBal" Fill="{Binding ElementName=cboKleuren, Path=SelectedValue}" Margin="0, 10, 0, 0">
+                    <i:Interaction.Triggers>
+                        <i:EventTrigger EventName="MouseMove">
+                            <gala:EventToCommand Command="{Binding MouseMoveCommand}" PassEventArgsToCommand="True"></gala:EventToCommand>
+                        </i:EventTrigger>
+
+                    </i:Interaction.Triggers>
+                </Ellipse>
+                <Image Source="pack://application:,,,/Images/vuilnisbak.png" Margin="0, 50, 0, 0"></Image>
+                <TextBlock Height="30" TextAlignment="Center" Margin="0,72,0,0">Lettertype</TextBlock>
+                <ComboBox Name="cboLettertype" SelectedItem="{Binding Lettertype}">
+                    <ComboBox.Resources>
+                        <CollectionViewSource x:Key="SortedFonts" Source="{x:Static Member=Fonts.SystemFontFamilies}">
+                            <CollectionViewSource.SortDescriptions>
+                                <smc:SortDescription PropertyName="Source"></smc:SortDescription>
+                            </CollectionViewSource.SortDescriptions>
+                        </CollectionViewSource>
+                    </ComboBox.Resources>
+                    <ComboBox.ItemsSource>
+                        <Binding Source="{StaticResource SortedFonts}"/>
+                    </ComboBox.ItemsSource>
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock FontFamily="{Binding}" Text="{Binding}"></TextBlock>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
                 <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
-                    <TextBlock Height="30" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10,0,0,0">Grootte</TextBlock>
-                    <Label Name="lblFontSize" Height="30" Width="30" Content="{Binding Tekstgrootte}"></Label>
+                    <TextBlock Height="15" TextAlignment="Center" Margin="10,0,0,0">Grootte</TextBlock>
+                    <Label Name="lblFontSize" Height="30" Width="30" Content="{Binding Tekstgrootte}" FontSize="15"></Label>
                     <StackPanel Orientation="vertical">
                         <RepeatButton Name="btnMeer" Height="20" Width="20" Interval="100" Delay="1000" Command="{Binding MeerCommand}">+</RepeatButton>
                         <RepeatButton Name="btnMinder" Height="20" Width="20" Interval="100" Delay="1000" Command="{Binding MinderCommand}">-</RepeatButton>
@@ -71,9 +104,6 @@
 
             </StackPanel>
         </StackPanel>
-        <StatusBar DockPanel.Dock="Bottom" Height="20">
-            <TextBlock Text="{Binding Status}"></TextBlock>
-        </StatusBar>
     </DockPanel>
 
 

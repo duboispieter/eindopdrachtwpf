@@ -9,8 +9,8 @@ namespace Wenskaarten.Model
 {
     public class Bal
     {
-        public SolidColorBrush BalKleur { get; set; }
-        public int xPos { get; set; }
-        public int yPos { get; set; }
+        public Brush BalKleur { get; set; }
+        public double xPos { get; set; }
+        public double yPos { get; set; }
     }
 }

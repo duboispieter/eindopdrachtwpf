@@ -1,27 +1,54 @@
 ﻿using GalaSoft.MvvmLight;
 using GalaSoft.MvvmLight.Command;
+using Microsoft.Win32;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 
 namespace Wenskaarten.ViewModel
 {
-    public class WenskaartVM: ViewModelBase
+    public class WenskaartVM : ViewModelBase
     {
+        #region Properties
         private Model.Wenskaart Wenskaart;
         public WenskaartVM(Model.Wenskaart wenskaart)
         {
             Wenskaart = wenskaart;
-            ControlsZichtbaar = false;
-            Status = "Nieuw";
+        }
+
+        private ObservableCollection<BalVM> ballen = new ObservableCollection<BalVM>();
+
+        public ObservableCollection<BalVM> Ballen
+        {
+            get
+            { return ballen; }
+            set
+            {
+                ballen = value;
+                RaisePropertyChanged("Ballen");
+            }
+        }
+
+        private ObservableCollection<KleurVM> kleurlijst = new ObservableCollection<KleurVM>();
+
+        public ObservableCollection<KleurVM> Kleurlijst
+        {
+            get
+            { return kleurlijst; }
+            set
+            {
+                kleurlijst = value;
+                RaisePropertyChanged("Kleurlijst");
+            }
         }
 
         public ImageBrush Achtergrond
@@ -37,25 +64,14 @@ namespace Wenskaarten.ViewModel
             }
         }
 
-        public ObservableCollection<Model.Bal> Ballen
+        public string Wens
         {
             get
-            { return Wenskaart.BallenLijst; }
+            { return Wenskaart.Wens; }
             set
             {
-                Wenskaart.BallenLijst = value;
-                RaisePropertyChanged("Ballen");
-            }
-        }
-
-        public ObservableCollection<Model.Kleur> Kleurenlijst
-        {
-            get
-            { return Wenskaart.Kleurenlijst; }
-            set
-            {
-                Wenskaart.Kleurenlijst = value;
-                RaisePropertyChanged("Kleurenlijst");
+                Wenskaart.Wens = value;
+                RaisePropertyChanged("Wens");
             }
         }
 
@@ -73,7 +89,7 @@ namespace Wenskaarten.ViewModel
             }
         }
 
-        public FontFamily  Lettertype
+        public FontFamily Lettertype
         {
             get
             { return Wenskaart.Lettertype; }
@@ -95,6 +111,18 @@ namespace Wenskaarten.ViewModel
             }
         }
 
+        public Boolean MenuEnabled
+        {
+            get
+            { return Wenskaart.MenuEnabled; }
+
+            set
+            {
+                Wenskaart.MenuEnabled = value;
+                RaisePropertyChanged("MenuEnabled");
+            }
+        }
+
         public string Status
         {
             get
@@ -105,7 +133,10 @@ namespace Wenskaarten.ViewModel
                 RaisePropertyChanged("Status");
             }
         }
+        #endregion
 
+        #region Commands
+        #region Window_Commands
         public RelayCommand LoadedCommand
         {
             get { return new RelayCommand(Loaded); }
@@ -113,21 +144,23 @@ namespace Wenskaarten.ViewModel
 
         private void Loaded()
         {
-            
+            LaadKleuren();
+            MenuEnabled = false;
+            ControlsZichtbaar = false;
+            Status = "Nieuw";
+
+        }
+
+        private void LaadKleuren()
+        {
             foreach (PropertyInfo info in typeof(Colors).GetProperties())
             {
                 BrushConverter bc = new BrushConverter();
                 SolidColorBrush deKleur =
                 (SolidColorBrush)bc.ConvertFromString(info.Name);
-                Model.Kleur kleurke = new Model.Kleur(deKleur, info.Name);
-
-                try
-                {
-                    MessageBox.Show(kleurke.Kleurnaam);
-                }
-                catch(Exception ex)
-                { MessageBox.Show(ex.Message); }
-                
+                Model.Kleur kleurM = new Model.Kleur(deKleur, info.Name);
+                KleurVM kleurVM = new KleurVM(kleurM);
+                Kleurlijst.Add(kleurVM);
             }
         }
         public RelayCommand AfsluitenCommand
@@ -150,7 +183,9 @@ namespace Wenskaarten.ViewModel
             if (MessageBox.Show("Wilt u het programma afsluiten?", "Afsluiten", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.No)
                 e.Cancel = true;
         }
+        #endregion
 
+        #region Menu_Bestand
         public RelayCommand NieuwCommand
         {
             get { return new RelayCommand(Nieuw); }
@@ -158,10 +193,122 @@ namespace Wenskaarten.ViewModel
 
         private void Nieuw()
         {
-
+            MenuEnabled = false;
             ControlsZichtbaar = false;
+            Status = "Nieuw";
         }
 
+        public RelayCommand OpslaanCommand
+        {
+            get { return new RelayCommand(Opslaan); }
+        }
+
+        private void Opslaan()
+        {
+            try
+            {
+                SaveFileDialog sfd = new SaveFileDialog();
+                sfd.FileName = "wenskaart";
+                sfd.DefaultExt = ".krt";
+                sfd.Filter = "wenskaarten | *.krt";
+
+                if (sfd.ShowDialog() == true)
+                {
+                    using (StreamWriter bestand = new StreamWriter(sfd.FileName))
+                    {
+                        bestand.WriteLine(Achtergrond.ImageSource.ToString());
+                        bestand.WriteLine(ballen.Count());
+
+                        foreach (BalVM b in ballen)
+                        {
+                            bestand.WriteLine(b.BalKleur.ToString());
+                            bestand.WriteLine(b.xPos.ToString());
+                            bestand.WriteLine(b.yPos.ToString());
+                        }
+                        bestand.WriteLine(Wens);
+                        bestand.WriteLine(Lettertype);
+                        bestand.WriteLine(Tekstgrootte);
+                    }
+                }
+                MessageBox.Show("Uw kaart werd opgeslagen!", "Geslaagd", MessageBoxButton.OK, MessageBoxImage.Information);
+                Status = sfd.FileName;
+            }
+
+            catch (Exception ex)
+            {
+                MessageBox.Show("Opslaan mislukt" + ex.Message);
+            }
+
+        }
+
+        public RelayCommand OpenenCommand
+        {
+            get { return new RelayCommand(Openen); }
+        }
+
+        private void Openen()
+        {
+            try
+            {
+
+                OpenFileDialog ofd = new OpenFileDialog();
+                ofd.Filter = "wenskaarten | *.krt";
+                ofd.DefaultExt = ".krt";
+
+                if (ofd.ShowDialog() == true)
+                {
+                    Reset();
+                    using (StreamReader bestand = new StreamReader(ofd.FileName))
+                    {
+                        ImageBrush ib = new ImageBrush();
+                        ib.ImageSource = new BitmapImage(new Uri(bestand.ReadLine(), UriKind.Absolute));
+                        Achtergrond = ib;
+
+                        int aantalBallen = int.Parse(bestand.ReadLine());
+
+                        if (aantalBallen != 0)
+                        {
+                            for (int i = 0; i < aantalBallen; i++)
+                            {
+                                BrushConverter bc = new BrushConverter();
+                                Brush kleur = (Brush)bc.ConvertFromString(bestand.ReadLine());
+                                Model.Bal balM = new Model.Bal();
+                                balM.BalKleur = kleur;
+                                balM.xPos = double.Parse(bestand.ReadLine());
+                                balM.yPos = double.Parse(bestand.ReadLine());
+
+                                ballen.Add(new BalVM(balM));
+                            }
+                        }
+
+                        Wens = bestand.ReadLine();
+                        Lettertype = new FontFamily(bestand.ReadLine());
+                        Tekstgrootte = int.Parse(bestand.ReadLine());
+                    }
+                }
+
+
+                Status = ofd.FileName;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+
+        }
+
+        public RelayCommand AfdrukvoorbeeldCommand
+        {
+            get { return new RelayCommand(Afdrukvoorbeeld); }
+        }
+
+        private void Afdrukvoorbeeld()
+        {
+            MessageBox.Show("Afdrukvoorbeeld", "Afdrukvoorbeeld", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        #endregion
+
+        #region Menu_Kaarten
         public RelayCommand KerstkaartCommand
         {
             get { return new RelayCommand(NieuweKerstkaart); }
@@ -170,12 +317,10 @@ namespace Wenskaarten.ViewModel
         private void NieuweKerstkaart()
         {
             ImageBrush ib = new ImageBrush();
-            ib.ImageSource= new BitmapImage(new Uri("pack://application:,,,/Images/kerstkaart.jpg", UriKind.Absolute));
+            ib.ImageSource = new BitmapImage(new Uri("pack://application:,,,/Images/kerstkaart.jpg", UriKind.Absolute));
             Achtergrond = ib;
 
-            ControlsZichtbaar = true;
-            Tekstgrootte = 30;
-            Lettertype = new FontFamily("Arial");
+            Reset();
         }
 
         public RelayCommand GeboortekaartCommand
@@ -188,11 +333,12 @@ namespace Wenskaarten.ViewModel
             ImageBrush ib = new ImageBrush();
             ib.ImageSource = new BitmapImage(new Uri("pack://application:,,,/Images/geboortekaart.jpg", UriKind.Absolute));
             Achtergrond = ib;
+            Reset();
 
-            ControlsZichtbaar = true;
-            Tekstgrootte = 30;
-            Lettertype = new FontFamily("Arial");
         }
+        #endregion
+
+        #region Functionaliteit
 
         public RelayCommand MeerCommand
         {
@@ -201,8 +347,8 @@ namespace Wenskaarten.ViewModel
 
         private void Meer()
         {
-            if(Tekstgrootte<40)
-            Tekstgrootte += 1;
+            if (Tekstgrootte < 40)
+                Tekstgrootte += 1;
         }
 
         public RelayCommand MinderCommand
@@ -215,38 +361,67 @@ namespace Wenskaarten.ViewModel
                 Tekstgrootte -= 1;
         }
 
-        public RelayCommand OpslaanCommand
+        public RelayCommand<MouseEventArgs> MouseMoveCommand
         {
-            get { return new RelayCommand(Opslaan); }
+            get { return new RelayCommand<MouseEventArgs>(MouseMove); }
         }
 
-        private void Opslaan()
+
+        private void MouseMove(MouseEventArgs e)
         {
-            Status = "Opslaan";
+            Ellipse bal = new Ellipse();
+            bal = (Ellipse)e.Source;
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                DataObject sleepBal = new DataObject("deBal", bal.Fill);
+
+                try
+                {
+                    DragDrop.DoDragDrop(bal, sleepBal, DragDropEffects.Move);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, ex.GetType().ToString());
+                }
+
+
+            }
         }
 
-        public RelayCommand OpenenCommand
+        public RelayCommand<DragEventArgs> DropCommand
         {
-            get { return new RelayCommand(Openen); }
+            get { return new RelayCommand<DragEventArgs>(Drop); }
         }
 
-        private void Openen()
+        private void Drop(DragEventArgs e)
         {
-            Status = "Openen";
+            Canvas canvas = new Canvas();
+            canvas = (Canvas)e.Source;
+            Model.Bal balM = new Model.Bal();
+            balM.BalKleur = (Brush)e.Data.GetData("deBal");
+
+            balM.xPos = e.GetPosition(canvas).X - 20;
+            balM.yPos = e.GetPosition(canvas).Y - 20;
+
+            BalVM balVM = new BalVM(balM);
+
+            ballen.Add(balVM);
         }
 
-        public RelayCommand DragEnterCommand
-        {
-            get { return new RelayCommand(DragEnter); }
-        }
-        private void DragEnter()
-        {
-            MessageBox.Show("Drag gestart");
-        }
+        #endregion
 
-        public void VoegBalToe()
+        private void Reset()
         {
-            MessageBox.Show("Bal toegevoegd");
+            ControlsZichtbaar = true;
+            Tekstgrootte = 30;
+            Lettertype = new FontFamily("Arial");
+            ballen.Clear();
+            Wens = "";
+            MenuEnabled = true;
+            Status = "Nieuw";
         }
+        
+        #endregion
+
     }
 }
